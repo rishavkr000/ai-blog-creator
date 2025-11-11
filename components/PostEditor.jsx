@@ -11,6 +11,7 @@ import PostEditorHeader from "./PostEditorHeader";
 import PostEditorContent from "./PostEditorContent";
 import PostEditorSettings from "./PostEditorSettings";
 import { toast } from "sonner";
+import ImageUploadModal from "./ImageUploadModal";
 
 const postSchema = z.object({
   title: z.string().min(1, "Title is required").max(200, "Title too long"),
@@ -129,6 +130,8 @@ const PostEditor = ({ initialData = null, mode = "create" }) => {
     handleSubmit((data) => onSubmit(data, "schedule"))();
   };
 
+  const handleImageSelect = (imageData) => {}
+
   return (
     <div className="min-h-screen bg-slate-900 text-white">
       {/* Header */}
@@ -162,6 +165,14 @@ const PostEditor = ({ initialData = null, mode = "create" }) => {
       />
 
       {/* Image Upload Dialog */}
+      <ImageUploadModal 
+        isOpen={isImageModalOpen}
+        onClose={() => setIsImageModalOpen(false)}
+        onImageSelect={handleImageSelect}
+        title={
+          imageModalType === "featured" ? "Upload Featured Image" : "Insert Image"
+        }
+      />
     </div>
   );
 };
