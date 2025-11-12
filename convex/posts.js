@@ -50,8 +50,8 @@ export const createPost = mutation({
 
     const now = Date.now();
 
-   // If publishing and we have an existing draft → publish it
-    if ((args.status === "published" && existingDraft)) {
+    // If publishing and we have an existing draft → publish it
+    if (args.status === "published" && existingDraft) {
       await ctx.db.patch(existingDraft._id, {
         title: args.title,
         content: args.content,
@@ -68,7 +68,7 @@ export const createPost = mutation({
     }
 
     // If saving a draft and we have existing draft → update it
-    if ((args.status === "draft" && existingDraft)) {
+    if (args.status === "draft" && existingDraft) {
       await ctx.db.patch(existingDraft._id, {
         title: args.title,
         content: args.content,
@@ -80,7 +80,7 @@ export const createPost = mutation({
       return existingDraft._id;
     }
 
-     // Else → create new post
+    // Else → create new post
     const postId = await ctx.db.insert("posts", {
       title: args.title,
       content: args.content,
@@ -155,5 +155,71 @@ export const updatePost = mutation({
 
     await ctx.db.patch(args.id, updateDate);
     return args.id;
+  },
+});
+
+// Get user's posts
+export const getUserPosts = query({
+  args: {
+    status: v.optional(v.union(v.literal("draft"), v.literal("published"))),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.runQuery(internal.users.getCurrentUser);
+
+    if (!user) {
+      return [];
+    }
+
+    let query = ctx.db
+      .query("posts")
+      .filter((q) => q.eq(q.field("authorId"), user._id));
+
+    // Filter by status if provided
+    if (args.status) {
+      query = query.filter((q) => q.eq(q.field("status"), args.status));
+    }
+
+    const posts = await query.order("desc").collect();
+
+    // Add username to each post
+    return posts.map((post) => ({
+      ...post,
+      username: user.username,
+    }));
+  },
+});
+
+// Get a single post by ID
+export const getById = query({
+  args: { id: v.id("posts") },
+  handler: async (ctx, args) => {
+    await ctx.runQuery(internal.users.getCurrentUser);
+
+    return await ctx.db.get(args.id);
+  },
+});
+
+// Delete a post
+export const deletePost = mutation({
+  args: { id: v.id("posts") },
+  handler: async (ctx, args) => {
+    const user = await ctx.runQuery(internal.users.getCurrentUser);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get the post
+    const post = await ctx.db.get(args.id);
+    if (!post) {
+      throw new Error("Post not found");
+    }
+
+    // Check if user owns the post
+    if (post.authorId !== user._id) {
+      throw new Error("Not authorized to delete this post");
+    }
+
+    await ctx.db.delete(args.id);
+    return { success: true };
   },
 });
